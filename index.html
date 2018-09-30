@@ -47,39 +47,126 @@ navigator.mediaDevices.getUserMedia(constraints)
 function update(canvas, ctx, video){
 	ctx.clearRect(0, 0, canvas.width, canvas.height);
 	ctx.drawImage(video, 0, 0);
-	let coi = centerOfIntensity(c, f, 254);
-	//////////////Game Logic///////////////
-	entityList = cleanList(entityList);
-	if(spawnTimer === spawnDelay){
-		spawnBox(canvas);
-		spawnTimer = 0;
+	if(coi !== null){
+		nodes.push({x: t(coi.x-20), y: coi.y, age: 0});
 	}
+	coi = centerOfIntensity(c, f, 254);
 	cursor = {x: t(coi.x-10), y: coi.y-10, w:20, h:20};
-	for(let entity of entityList){
-		if(entity !== null){
-			entity.kinematics(canvas);
-			entity.collision(cursor);
+	for(let i=0;i<nodes.length;i++){
+		nodes[i].age++;
+		if(nodes[i].age > maxNodeAge){
+			nodes.splice(i, 1);
 		}
 	}
-	spawnTimer++;
+	//////////////Game Logic///////////////
+	switch(state){
+		case 0:
+			if(coi.y > canvas.height*0.75){
+				state = 1;
+			}
+			break;
+		case 1:
+			entityList = cleanList(entityList);
+			for(let i=0;i<entityList.length;i++){
+				entityList[i].index = i;
+			}
+			if(spawnTimer >= spawnDelay){
+				spawnBox(canvas);
+				spawnTimer = 0;
+				if(spawnDelay > 30){
+					spawnDelay -= 0.5;
+				}
+			}
+			for(let entity of entityList){
+				if(entity !== null){
+					entity.kinematics(canvas);
+					entity.collision(cursor);
+				}
+			}
+			spawnTimer++;
+			break;
+		case 2:
+			entityList = [];
+			if(loseScreenTimer < 1 && coi.y > canvas.height*0.75){
+				state = 1;
+				let entityList = [];
+				score = 0;
+				spawnDelay = 90;
+				spawnTimer = 90;
+				nodes = [];
+				loseScreenTimer = 30;
+			}
+			loseScreenTimer--;
+			break;
+		default:
+			break;
+	}
 	/////////////Game Logic End////////////
+	ctx.globalAlpha = 0.7;
 	ctx.fillStyle = "black";
 	ctx.fillRect(0, 0, canvas.width, canvas.height);
-	ctx.fillStyle = "white";
-	ctx.save();
-	ctx.translate(c.width, 0);
-	ctx.scale(-1, 1);
-	ctx.font = "20px Courier";
-	ctx.fillText(`Score: ${score}`, 15, 30);
-	ctx.restore();
-	ctx.fillStyle="red";
+	ctx.globalAlpha = 1;
+	drawNodeList(f);
+	ctx.fillStyle="hsl(220, 50%, 50%)";
 	ctx.fillRect(t(coi.x-10), coi.y-10, 20, 20);
+	switch(state){
+		case 0:
+			ctx.save();
+			ctx.translate(c.width, 0);
+			ctx.scale(-1, 1);
+			ctx.fillStyle = "hsl(200, 70%, 80%)";
+			ctx.font = "50px Courier";
+			ctx.fillText("LIGHT SLICER", 145, 100);
+			ctx.fillStyle = "hsl(180, 50%, 50%)";
+			ctx.font = "20px Courier";
+			ctx.fillText("Shine a light in front of the", 150, 150);
+			ctx.fillText("camera and slice the things", 160, 180);
+			ctx.globalAlpha = 0.7;
+			ctx.fillStyle = "gold";
+			ctx.fillRect(0, canvas.height*0.75, canvas.width, canvas.height*0.25);
+			ctx.globalAlpha = 1;
+			ctx.fillStyle="black"
+			ctx.font = "20px Courier";
+			ctx.fillText("Slice here to begin", 200, 430);
+			ctx.restore();
+			break;
+		case 1:
+			ctx.fillStyle = "white";
+			ctx.save();
+			ctx.translate(c.width, 0);
+			ctx.scale(-1, 1);
+			ctx.font = "20px Courier";
+			ctx.fillText(`Score: ${score}`, 15, 30);
+			ctx.restore();
 	
-	for(let entity of entityList){
-		//console.log(entity.color);
-		if(entity !== null){
-			entity.draw(ctx);
-		}
+			for(let entity of entityList){
+				//console.log(entity.color);
+				if(entity !== null){
+					entity.draw(ctx);
+				}
+			}
+			break;
+		case 2:
+			ctx.save();
+			ctx.translate(c.width, 0);
+			ctx.scale(-1, 1);
+			ctx.fillStyle = "hsl(10, 70%, 80%)";
+			ctx.font = "50px Courier";
+			ctx.fillText("YOU FAILED", 170, 100);
+			ctx.fillStyle = "hsl(20, 50%, 50%)";
+			ctx.font = "30px Courier";
+			ctx.fillText(`Score: ${score}`, 170, 150);
+			ctx.globalAlpha = 0.7;
+			ctx.fillStyle = "salmon";
+			ctx.fillRect(0, canvas.height*0.75, canvas.width, canvas.height*0.25);
+			ctx.globalAlpha = 1;
+			ctx.fillStyle="black"
+			ctx.font = "20px Courier";
+			ctx.fillText("Slice here to restart", 190, 430);
+			ctx.restore();
+			break;
+		default:
+			break;
 	}
 }
 
@@ -98,6 +185,13 @@ function centerOfIntensity(c, ctx, threshold){
 	}
 	return {x: weightedSumX/intensitySum , y: weightedSumY/intensitySum};
 }
+
+window.onkeydown = (event)=>{
+	let key = event.which || event.charCode;
+	if(state === 1 && key === 32){
+		spawnBox(c);
+	}
+}	
 		
 		</script>
 	</body>

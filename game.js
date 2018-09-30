@@ -4,12 +4,37 @@ let score = 0;
 let spawnDelay = 90;
 let spawnTimer = 90;
 let cursor;
+let coi = null;
+let nodes = [];
+let maxNodeAge = 10;
+let state = 0;
+let loseScreenDelay = 30;
+let loseScreenTimer = 30;
 
 let stop = ()=>{
 	clearInterval(gameloop)
 };
 
 let cleanList = (list)=>list.filter((x)=>x!==null);
+
+function drawNodeList(ctx){
+	for(let i=0;i<nodes.length;i++){
+		ctx.beginPath();
+		ctx.arc(nodes[i].x, nodes[i].y, i/2, 0, 2*Math.PI);
+		ctx.fillStyle = `hsl(${20*i}, 50%, 50%)`;
+		ctx.fill();
+		ctx.closePath();
+		if(i < nodes.length-1){
+			ctx.beginPath();
+			ctx.moveTo(nodes[i].x, nodes[i].y)
+			ctx.lineTo(nodes[i+1].x, nodes[i+1].y);
+			ctx.strokeStyle = `hsl(${20*i}, 50%, 70%)`;
+			ctx.lineWidth = i+1;
+			ctx.stroke();
+			ctx.closePath();
+		}
+	}
+}
 
 class Box{
 
@@ -31,12 +56,16 @@ class Box{
 		this.y += this.yv;
 		if(this.y > canvas.height + 100 || this.x < -100 || this.x > canvas.width + 100){
 			//console.log("hi");
-			this.deleteSelfFromList();
+			state = 2;
 		}
 	}
 	
 	collision(box){
+		let hit = false;
 		if(this.x < box.x+box.w && this.x+this.w > box.x && this.y < box.y+box.h && this.y+this.h > box.y){
+			hit = true;
+		}
+		if(hit){
 			this.deleteSelfFromList();
 			score++;
 		}
@@ -75,4 +104,35 @@ function spawnBox(canvas){
 	box.xv = direction*xv;
 	box.yv = yv;
 	box.addToList();
+}
+
+//The collision functions below exist as part of a feature that I couldn't get to work.
+//I have to debug these collision functions first before I can use them.
+//They don't do anything right now.
+
+function lineCollision(x1, y1, x2, y2, x3, y3, x4, y4){
+	let a1 = y2-y1, b1 = x2-x1, c1 = a1*x1 + b1*y1;
+	let a2 = y4-y3, b2 = x4-x3, c2 = a2*x3 + b2*y3;
+	let det = a1*b2 - a2*b1;
+	if(det === 0){
+		return false;
+	} else {
+		let xc = (b2*c1 - b1*c2)/det;
+		let yc = (a1*c2 - a2*c1)/det;
+		if(xc >= Math.min(x1, x2) && xc <= Math.max(x1, x2) && yc >= Math.min(y1, y2) && yc <= Math.max(y1, y2)){
+			return true;
+		}
+	}
+	return false;
+}
+
+function rectLineCollision(box, x1, y1, x2, y2){
+	let top = lineCollision(box.x, box.y, box.x+box.w, box.y, x1, y1, x2, y2);
+	let right = lineCollision(box.x+box.w, box.y, box.x+box.w, box.y+box.h, x1, y1, x2, y2);
+	let bottom = lineCollision(box.x, box.y+box.h, box.x+box.w, box.y+box.h, x1, y1, x2, y2);
+	let left = lineCollision(box.x, box.y, box.x, box.y+box.h, x1, y1, x2, y2);
+	if(top || right || bottom || left){
+		return true;
+	}
+	return false;
 }
