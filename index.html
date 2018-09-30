@@ -1,0 +1,104 @@
+<!doctype html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<title>MediaStream Test</title>
+	</head>
+	<body>
+		<canvas style="border:1px solid;"></canvas>
+		<p>Enable your webcam and shine a flashlight (like a phone flashlight) in front of the camera</p>
+		<p>Move the light around to control your attack and slash the objects that come on screen</p>
+		<script src="game.js"></script>
+		<script>
+		
+let c = document.querySelector("canvas");
+let f = c.getContext('2d');
+let v = document.createElement("video");
+
+let constraints = 
+{
+ audio: false,
+ video: {
+ 	facingMode: {
+ 		ideal: "environment"
+ 		}
+ 	}
+};
+
+navigator.mediaDevices.getUserMedia(constraints)
+.then( (stream)=>{
+	window.stream = stream;
+	try {
+		v.srcObject = stream;
+	} catch(error){
+		v.src = URL.createObjectURL(stream);
+	}
+	v.setAttribute('autoplay', '1');
+	c.width = stream.getVideoTracks()[0].getSettings().width;
+	c.height = stream.getVideoTracks()[0].getSettings().height;
+	f.translate(c.width, 0);
+	f.scale(-1, 1);
+	gameloop = setInterval(()=>{update(c, f, v)}, 1000/30);
+})
+.catch( (err)=>{
+	console.log(err);
+});
+
+function update(canvas, ctx, video){
+	ctx.clearRect(0, 0, canvas.width, canvas.height);
+	ctx.drawImage(video, 0, 0);
+	let coi = centerOfIntensity(c, f, 254);
+	//////////////Game Logic///////////////
+	entityList = cleanList(entityList);
+	if(spawnTimer === spawnDelay){
+		spawnBox(canvas);
+		spawnTimer = 0;
+	}
+	cursor = {x: t(coi.x-10), y: coi.y-10, w:20, h:20};
+	for(let entity of entityList){
+		if(entity !== null){
+			entity.kinematics(canvas);
+			entity.collision(cursor);
+		}
+	}
+	spawnTimer++;
+	/////////////Game Logic End////////////
+	ctx.fillStyle = "black";
+	ctx.fillRect(0, 0, canvas.width, canvas.height);
+	ctx.fillStyle = "white";
+	ctx.save();
+	ctx.translate(c.width, 0);
+	ctx.scale(-1, 1);
+	ctx.font = "20px Courier";
+	ctx.fillText(`Score: ${score}`, 15, 30);
+	ctx.restore();
+	ctx.fillStyle="red";
+	ctx.fillRect(t(coi.x-10), coi.y-10, 20, 20);
+	
+	for(let entity of entityList){
+		//console.log(entity.color);
+		if(entity !== null){
+			entity.draw(ctx);
+		}
+	}
+}
+
+function t(x){ return -1*x+c.width};
+
+function centerOfIntensity(c, ctx, threshold){
+	frame = ctx.getImageData(0, 0, c.width, c.height).data;
+	let weightedSumX = 0, weightedSumY = 0, intensitySum = 0;
+	for(let i=0;i<frame.length;i+=4){
+		let intensity = (frame[i]+frame[i+1]+frame[i+2])/3;
+		if( intensity >= threshold ){
+			weightedSumX += intensity*((i/4)%c.width);
+			weightedSumY += intensity*Math.floor((i/4)/c.width);
+			intensitySum += intensity;
+		}
+	}
+	return {x: weightedSumX/intensitySum , y: weightedSumY/intensitySum};
+}
+		
+		</script>
+	</body>
+</html>
